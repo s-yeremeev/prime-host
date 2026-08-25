@@ -25,9 +25,11 @@ export class CartPage {
   /** Removes every item currently in the cart, leaving it empty. */
   async clear() {
     while (!(await this.isEmpty())) {
-      const row = this.rows.first();
-      await row.getByRole('cell').last().getByRole('button').click();
-      await this.page.waitForTimeout(300);
+      const removed = this.page.waitForResponse(
+        (res) => res.request().method() === 'DELETE' && /\/api\/cart\/remove\/\d+$/.test(res.url())
+      );
+      await this.rows.first().getByRole('cell').last().getByRole('button').click();
+      await removed;
     }
   }
 }
