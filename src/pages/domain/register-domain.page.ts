@@ -36,7 +36,7 @@ export class RegisterDomainPage {
   }
 
   /** First `limit` rows that are actually purchasable (have an "Add to
-   *  cart" button, unlike taken domains which only offer "Whois"). */
+    cart" button, unlike taken domains which only offer "Whois"). */
   async availableRows(limit: number): Promise<Locator[]> {
     const items = this.resultsList.getByRole('listitem');
     const count = await items.count();
@@ -58,12 +58,11 @@ export class RegisterDomainPage {
     const text = await row.locator('.text-sm.font-medium').last().innerText();
     return parsePrice(text);
   }
+
   async addToCart(row: Locator) {
+    const domain = await this.domainNameOf(row);
 
     await row.getByRole('button', { name: 'Add to cart' }).click();
-
-    // Some TLDs (e.g. .net) interrupt with a "REGISTRATION NOTICE" dialog
-    // that must be accepted before the domain is actually added.
     const agreeButton = this.page.getByRole('button', { name: 'I AGREE, ADD DOMAIN TO CART' });
     const noticeShown = await agreeButton
       .waitFor({ timeout: 3000 })
@@ -75,8 +74,21 @@ export class RegisterDomainPage {
 
     const toast = this.page.getByText('Domain has been added to cart').first();
     await toast.waitFor({ timeout: 10_000 });
-    // The cart is only updated by an async backend step that lands a couple
-    // of seconds after the toast — /api/cart/get is empty until it lands.
-    await this.page.waitForTimeout(3000);
+
+    await this.waitUntilInCart(domain);
+  }
+
+  private async waitUntilInCart(domain: string, timeoutMs = 10_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const res = await this.page.request.get('/api/cart/get');
+      const body = await res.json();
+      const items: Array<{ name: string }> = body.data.cart.visible_items ?? [];
+      if (items.some((item) => item.name === domain)) {
+        return;
+      }
+      await this.page.waitForTimeout(250);
+    }
+    throw new Error(`"${domain}" never appeared in /api/cart/get within ${timeoutMs}ms`);
   }
 }

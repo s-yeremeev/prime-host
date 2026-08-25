@@ -16,10 +16,6 @@ const CHECKBOX_LABEL = {
   financialEmails: 'Send financial emails (balance notifications)',
 } as const;
 
-/**
- * The Add and Edit contact pages share the exact same form markup, so one
- * page object drives both.
- */
 export class ContactFormBlock {
   constructor(private readonly page: Page) {}
 
